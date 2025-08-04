@@ -1,28 +1,41 @@
-name: Python package
+name: CICD Pipeline 
 
-on: [push]
+on:
+  push:
+    branches: [ "main" ]
 
 jobs:
-  build:
-
+  compile:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["pypy3.10", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      # You can test your matrix by printing the current Python version
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
+    - uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    - name: Build with Maven
+      run: mvn compile
+      
+  security-check:
+    runs-on: ubuntu-latest
+    needs: compile
 
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@ec02537da5712d66d4d50a0f33b7eb52773b5ed1
-        with:
-          ruby-version: '3.1' # Not needed with a .ruby-version file
-      - run: bundle install
-      - run: bundle exec rake
+    steps:
+    - uses: actions/checkout@v4
+    - name: Trivy Installation
+      run: |
+        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update -y
+        sudo apt-get install -y trivy
+    - name: Trivy FS Scan
+      run: trivy fs --format table -o fs-report.json .
+
+    - name: Gitleaks Installation
+      run: sudo apt install gitleaks -y
+    - name: Gitleaks Code Scan
+      run: gitleaks detect source . -r gitleaks-report.json -f json
