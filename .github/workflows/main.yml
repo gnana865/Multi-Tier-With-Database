@@ -20,7 +20,6 @@ jobs:
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
 
-    steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
